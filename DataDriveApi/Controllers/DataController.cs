@@ -79,10 +79,22 @@ public class DataController : ControllerBase
         // ── Insert rows (= for coin in data: c.execute("INSERT ...")) ──
         var ts = DateTime.UtcNow.ToString("o");
         using var conn = _db.GetConnection();
+        using var tx = conn.BeginTransaction(); // Group all inserts in 1 transaction (fixes speed limit!)
+
+        using var batch = new NpgsqlBatch(conn, tx);
+
+        // Helper functions 
+        object GetStr(JsonElement coinNode, string key) =>
+            coinNode.TryGetProperty(key, out var v) && v.ValueKind != JsonValueKind.Null
+                ? v.ToString() : (object)DBNull.Value;
+
+        object GetNum(JsonElement coinNode, string key) =>
+            coinNode.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number
+                ? v.GetDouble() : (object)DBNull.Value;
+
         foreach (var coin in data)
         {
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"
+            var cmd = new NpgsqlBatchCommand(@"
                 INSERT INTO market_snapshots (
                     coin_id, symbol, name,
                     current_price, market_cap, total_volume,
@@ -92,43 +104,35 @@ public class DataController : ControllerBase
                     ath, ath_change_pct, timestamp
                 ) VALUES (
                     @coin_id, @symbol, @name,
-                    @current_price, @market_cap, @total_volume,
-                    @price_change_24h, @price_change_pct_24h,
-                    @high_24h, @low_24h,
-                    @circulating_supply, @max_supply,
-                    @ath, @ath_change_pct, @timestamp
-                )";
+                    CAST(@current_price AS double precision), CAST(@market_cap AS double precision), CAST(@total_volume AS double precision),
+                    CAST(@price_change_24h AS double precision), CAST(@price_change_pct_24h AS double precision),
+                    CAST(@high_24h AS double precision), CAST(@low_24h AS double precision),
+                    CAST(@circulating_supply AS double precision), CAST(@max_supply AS double precision),
+                    CAST(@ath AS double precision), CAST(@ath_change_pct AS double precision), @timestamp
+                )");
 
-
-            // Python equivalent: coin.get("key")
-            // GetStr → returns string or DBNull (for text columns)
-            // GetNum → returns double or DBNull (for DOUBLE PRECISION columns)
-            object GetStr(string key) =>
-                coin.TryGetProperty(key, out var v) && v.ValueKind != JsonValueKind.Null
-                    ? v.ToString() : (object)DBNull.Value;
-
-            object GetNum(string key) =>
-                coin.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number
-                    ? v.GetDouble() : (object)DBNull.Value;
-
-            cmd.Parameters.AddWithValue("coin_id",              GetStr("id"));
-            cmd.Parameters.AddWithValue("symbol",               GetStr("symbol"));
-            cmd.Parameters.AddWithValue("name",                 GetStr("name"));
-            cmd.Parameters.AddWithValue("current_price",        GetNum("current_price"));
-            cmd.Parameters.AddWithValue("market_cap",           GetNum("market_cap"));
-            cmd.Parameters.AddWithValue("total_volume",         GetNum("total_volume"));
-            cmd.Parameters.AddWithValue("price_change_24h",     GetNum("price_change_24h"));
-            cmd.Parameters.AddWithValue("price_change_pct_24h", GetNum("price_change_percentage_24h"));
-            cmd.Parameters.AddWithValue("high_24h",             GetNum("high_24h"));
-            cmd.Parameters.AddWithValue("low_24h",              GetNum("low_24h"));
-            cmd.Parameters.AddWithValue("circulating_supply",   GetNum("circulating_supply"));
-            cmd.Parameters.AddWithValue("max_supply",           GetNum("max_supply"));
-            cmd.Parameters.AddWithValue("ath",                  GetNum("ath"));
-            cmd.Parameters.AddWithValue("ath_change_pct",       GetNum("ath_change_percentage"));
+            cmd.Parameters.AddWithValue("coin_id",              GetStr(coin, "id"));
+            cmd.Parameters.AddWithValue("symbol",               GetStr(coin, "symbol"));
+            cmd.Parameters.AddWithValue("name",                 GetStr(coin, "name"));
+            cmd.Parameters.AddWithValue("current_price",        GetNum(coin, "current_price"));
+            cmd.Parameters.AddWithValue("market_cap",           GetNum(coin, "market_cap"));
+            cmd.Parameters.AddWithValue("total_volume",         GetNum(coin, "total_volume"));
+            cmd.Parameters.AddWithValue("price_change_24h",     GetNum(coin, "price_change_24h"));
+            cmd.Parameters.AddWithValue("price_change_pct_24h", GetNum(coin, "price_change_percentage_24h"));
+            cmd.Parameters.AddWithValue("high_24h",             GetNum(coin, "high_24h"));
+            cmd.Parameters.AddWithValue("low_24h",              GetNum(coin, "low_24h"));
+            cmd.Parameters.AddWithValue("circulating_supply",   GetNum(coin, "circulating_supply"));
+            cmd.Parameters.AddWithValue("max_supply",           GetNum(coin, "max_supply"));
+            cmd.Parameters.AddWithValue("ath",                  GetNum(coin, "ath"));
+            cmd.Parameters.AddWithValue("ath_change_pct",       GetNum(coin, "ath_change_percentage"));
             cmd.Parameters.AddWithValue("timestamp",            ts);
-            cmd.ExecuteNonQuery();
-
+            
+            batch.BatchCommands.Add(cmd);
         }
+
+        await batch.ExecuteNonQueryAsync(); // Send all 10 inserts in ONE physical network packet!
+
+        tx.Commit(); // Send all 10 inserts at once = fast!
 
         return Ok(new IngestResponse("success", data.Count, ts));
     }

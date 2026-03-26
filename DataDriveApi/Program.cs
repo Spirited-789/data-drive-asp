@@ -66,7 +66,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
-// ── 5. BUILD & MIDDLEWARE PIPELINE ────────────────────────────────────
+// ── 5. BIND TO PORT FOR RENDER ─────────────────────────────────────────
+// Render dynamically assigns a port to the container via $PORT.
+var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+builder.WebHost.UseUrls($"http://*:{port}");
+
+// ── 6. BUILD & MIDDLEWARE PIPELINE ────────────────────────────────────
 var app = builder.Build();
 
 app.UseCors();

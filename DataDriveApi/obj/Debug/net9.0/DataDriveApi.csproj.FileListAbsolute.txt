@@ -37,3 +37,4 @@ C:\Internship\DataDriveApi-csharp\DataDriveApi\bin\Debug\net9.0\Microsoft.Identi
 C:\Internship\DataDriveApi-csharp\DataDriveApi\bin\Debug\net9.0\Npgsql.dll
 C:\Internship\DataDriveApi-csharp\DataDriveApi\bin\Debug\net9.0\System.IdentityModel.Tokens.Jwt.dll
 C:\Internship\DataDriveApi-csharp\DataDriveApi\obj\Debug\net9.0\DataDriv.DC441AD9.Up2Date
+C:\Internship\DataDriveApi-csharp\DataDriveApi\obj\Debug\net9.0\DataDriveApi.sourcelink.json

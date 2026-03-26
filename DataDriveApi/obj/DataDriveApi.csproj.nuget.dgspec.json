@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Internship\\DataDriveApi-csharp\\DataDriveApi\\DataDriveApi.csproj": {}
+    "c:\\Internship\\DataDriveApi-csharp\\DataDriveApi\\DataDriveApi.csproj": {}
   },
   "projects": {
-    "C:\\Internship\\DataDriveApi-csharp\\DataDriveApi\\DataDriveApi.csproj": {
+    "c:\\Internship\\DataDriveApi-csharp\\DataDriveApi\\DataDriveApi.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Internship\\DataDriveApi-csharp\\DataDriveApi\\DataDriveApi.csproj",
+        "projectUniqueName": "c:\\Internship\\DataDriveApi-csharp\\DataDriveApi\\DataDriveApi.csproj",
         "projectName": "DataDriveApi",
-        "projectPath": "C:\\Internship\\DataDriveApi-csharp\\DataDriveApi\\DataDriveApi.csproj",
+        "projectPath": "c:\\Internship\\DataDriveApi-csharp\\DataDriveApi\\DataDriveApi.csproj",
         "packagesPath": "C:\\Users\\Shiven\\.nuget\\packages\\",
-        "outputPath": "C:\\Internship\\DataDriveApi-csharp\\DataDriveApi\\obj\\",
+        "outputPath": "c:\\Internship\\DataDriveApi-csharp\\DataDriveApi\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Shiven\\AppData\\Roaming\\NuGet\\NuGet.Config"

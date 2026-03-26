@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("DataDriveApi")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1e81ce024d2db0aa7f273b94348efaa81ef4119c")]
 [assembly: System.Reflection.AssemblyProductAttribute("DataDriveApi")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DataDriveApi")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
