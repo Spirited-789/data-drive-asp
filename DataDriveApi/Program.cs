@@ -16,6 +16,8 @@ var secretKey   = builder.Configuration["Jwt:SecretKey"]    ?? throw new Excepti
 var dbConn      = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new Exception("DB connection not set");
 var expiresMin  = builder.Configuration.GetValue<int>("Jwt:ExpiresMinutes", 30);
 var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? [];
+var azureClientId = builder.Configuration["AzureAd:ClientId"];
+var azureTenantId = builder.Configuration["AzureAd:TenantId"];
 
 // ── 2. REGISTER SERVICES (Dependency Injection) ───────────────────────
 // This is C#'s equivalent of FastAPI's Depends() system.
@@ -50,8 +52,6 @@ builder.Services.AddCors(options =>
 // Supports BOTH:
 //   1. Local tokens (from AuthController login)
 //   2. Microsoft tokens (from Entra ID login)
-var azureClientId = builder.Configuration["AzureAd:ClientId"];
-var azureTenantId = builder.Configuration["AzureAd:TenantId"];
 
 builder.Services.AddAuthentication(opts =>
     {
