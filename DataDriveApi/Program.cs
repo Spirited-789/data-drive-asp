@@ -32,7 +32,7 @@ builder.Services.AddControllers();
 builder.Services.AddSingleton(new Database(dbConn));
 
 // Register AuthService
-builder.Services.AddSingleton(new AuthService(secretKey, expiresMin));
+builder.Services.AddSingleton(new AuthService(secretKey, expiresMin, azureClientId, azureTenantId));
 
 // Register HttpClient factory (used by DataController for requests.get() equivalent)
 builder.Services.AddHttpClient();
@@ -47,24 +47,52 @@ builder.Services.AddCors(options =>
               .AllowCredentials()));
 
 // ── 4. JWT AUTHENTICATION ─────────────────────────────────────────────
-// Python: oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-//         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-//
-// C# configures this ONCE here — then just put [Authorize] on any endpoint
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(opts =>
+// Supports BOTH:
+//   1. Local tokens (from AuthController login)
+//   2. Microsoft tokens (from Entra ID login)
+var azureClientId = builder.Configuration["AzureAd:ClientId"];
+var azureTenantId = builder.Configuration["AzureAd:TenantId"];
+
+builder.Services.AddAuthentication(opts =>
+    {
+        opts.DefaultAuthenticateScheme = "Local";
+        opts.DefaultChallengeScheme = "Local";
+    })
+    .AddJwtBearer("Local", opts =>
     {
         opts.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
-            ValidateIssuer   = false,
+            ValidateIssuer = false,
             ValidateAudience = false,
-            ClockSkew        = TimeSpan.Zero
+            ClockSkew = TimeSpan.Zero
+        };
+    })
+    .AddJwtBearer("EntraID", opts =>
+    {
+        // AUTHORITY: e.g. https://login.microsoftonline.com/9188.../v2.0
+        opts.Authority = $"https://login.microsoftonline.com/{azureTenantId}/v2.0";
+        opts.Audience = azureClientId;
+        opts.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidAudience = azureClientId,
+            // Skip signing key validation if we want to be "loose" like the Python PoC,
+            // but setting Authority automatically handles JWKS key rotation for us!
+            ValidateIssuerSigningKey = true, 
+            ClockSkew = TimeSpan.Zero
         };
     });
 
-builder.Services.AddAuthorization();
+// Define a policy that allows EITHER local OR Microsoft tokens
+builder.Services.AddAuthorization(opts =>
+{
+    var defaultPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder("Local", "EntraID")
+        .RequireAuthenticatedUser()
+        .Build();
+    opts.DefaultPolicy = defaultPolicy;
+});
 
 // ── 5. BIND TO PORT FOR RENDER ─────────────────────────────────────────
 // Render dynamically assigns a port to the container via $PORT.

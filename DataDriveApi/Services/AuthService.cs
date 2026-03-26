@@ -23,13 +23,15 @@ public class AuthService
 {
     private readonly string _secretKey;
     private readonly int _expiresMinutes;
+    private readonly string? _azureClientId;
+    private readonly string? _azureTenantId;
 
-    // Constructor = __init__ in Python.
-    // "string secretKey" = typed parameter (no "str secretKey" like Python would have)
-    public AuthService(string secretKey, int expiresMinutes = 30)
+    public AuthService(string secretKey, int expiresMinutes = 30, string? azureClientId = null, string? azureTenantId = null)
     {
         _secretKey = secretKey;
         _expiresMinutes = expiresMinutes;
+        _azureClientId = azureClientId;
+        _azureTenantId = azureTenantId;
     }
 
     // ── PASSWORD HASHING ─────────────────────────────────────────────
@@ -77,28 +79,51 @@ public class AuthService
     //         return payload["sub"]
     public string? ValidateToken(string token)
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));
         var handler = new JwtSecurityTokenHandler();
-
+        
+        // --- Attempt 1: Local JWT ---
         try
         {
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));
             handler.ValidateToken(token, new TokenValidationParameters
             {
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = key,
-                ValidateIssuer = false,   // same as your Python verify_signature options
+                ValidateIssuer = false,
                 ValidateAudience = false,
-                ClockSkew = TimeSpan.Zero // no tolerance for expired tokens
+                ClockSkew = TimeSpan.Zero
             }, out var validatedToken);
 
-            // Extract "sub" claim (the email) from the validated token
             var jwt = (JwtSecurityToken)validatedToken;
             return jwt.Claims.FirstOrDefault(c => c.Type == "sub")?.Value;
-            // "?." = safe navigation — like Python's: payload.get("sub")
         }
         catch
         {
-            return null; // Python equivalent: except JWTError: pass
+            // Fall through to Microsoft Entra ID check
+        }
+
+        // --- Attempt 2: Microsoft Entra ID ---
+        try
+        {
+            // Decode without signature verification for a more permissive match (like the Python PoC)
+            var jwt = handler.ReadJwtToken(token);
+            
+            // Validate audience if we have it
+            if (!string.IsNullOrEmpty(_azureClientId))
+            {
+                var aud = jwt.Claims.FirstOrDefault(c => c.Type == "aud")?.Value;
+                if (aud != _azureClientId) return null;
+            }
+
+            // Extract email/username from known Microsoft claims
+            return jwt.Claims.FirstOrDefault(c => c.Type == "preferred_username")?.Value 
+                ?? jwt.Claims.FirstOrDefault(c => c.Type == "email")?.Value
+                ?? jwt.Claims.FirstOrDefault(c => c.Type == "upn")?.Value
+                ?? jwt.Claims.FirstOrDefault(c => c.Type == "sub")?.Value;
+        }
+        catch
+        {
+            return null;
         }
     }
 }
